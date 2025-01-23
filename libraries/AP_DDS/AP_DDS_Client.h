@@ -25,6 +25,9 @@
 #if AP_DDS_IMU_PUB_ENABLED
 #include "sensor_msgs/msg/Imu.h"
 #endif // AP_DDS_IMU_PUB_ENABLED
+#if AP_DDS_STATUS_PUB_ENABLED
+#include "ardupilot_msgs/msg/Status.h"
+#endif // AP_DDS_STATUS_PUB_ENABLED
 #if AP_DDS_JOY_SUB_ENABLED
 #include "sensor_msgs/msg/Joy.h"
 #endif // AP_DDS_JOY_SUB_ENABLED
@@ -37,12 +40,23 @@
 #if AP_DDS_GPS_GLOBAL_ORIGIN_PUB_ENABLED
 #include "geographic_msgs/msg/GeoPointStamped.h"
 #endif // AP_DDS_GPS_GLOBAL_ORIGIN_PUB_ENABLED
+#if AP_DDS_AIRSPEED_PUB_ENABLED
+#include "geometry_msgs/msg/Vector3Stamped.h"
+#endif // AP_DDS_AIRSPEED_PUB_ENABLED
 #if AP_DDS_GEOPOSE_PUB_ENABLED
 #include "geographic_msgs/msg/GeoPoseStamped.h"
 #endif // AP_DDS_GEOPOSE_PUB_ENABLED
 #if AP_DDS_CLOCK_PUB_ENABLED
 #include "rosgraph_msgs/msg/Clock.h"
 #endif // AP_DDS_CLOCK_PUB_ENABLED
+#if AP_DDS_PARAMETER_SERVER_ENABLED
+#include "rcl_interfaces/srv/SetParameters.h"
+#include "rcl_interfaces/msg/Parameter.h"
+#include "rcl_interfaces/msg/SetParametersResult.h"
+#include "rcl_interfaces/msg/ParameterValue.h"
+#include "rcl_interfaces/msg/ParameterType.h"
+#include "rcl_interfaces/srv/GetParameters.h"
+#endif //AP_DDS_PARAMETER_SERVER_ENABLED
 
 #include <AP_HAL/AP_HAL.h>
 #include <AP_HAL/Scheduler.h>
@@ -100,6 +114,16 @@ private:
     static void update_topic(geographic_msgs_msg_GeoPointStamped& msg);
 # endif // AP_DDS_GPS_GLOBAL_ORIGIN_PUB_ENABLED
 
+#if AP_DDS_GOAL_PUB_ENABLED
+    geographic_msgs_msg_GeoPointStamped goal_topic;
+    // The last ms timestamp AP_DDS wrote a goal message
+    uint64_t last_goal_time_ms;
+    //! @brief Serialize the current goal and publish to the IO stream(s)
+    void write_goal_topic();
+    bool update_topic_goal(geographic_msgs_msg_GeoPointStamped& msg);
+    geographic_msgs_msg_GeoPointStamped prev_goal_msg;
+#endif // AP_DDS_GOAL_PUB_ENABLED
+
 #if AP_DDS_GEOPOSE_PUB_ENABLED
     geographic_msgs_msg_GeoPoseStamped geo_pose_topic;
     // The last ms timestamp AP_DDS wrote a GeoPose message
@@ -126,6 +150,15 @@ private:
     void write_tx_local_velocity_topic();
     static void update_topic(geometry_msgs_msg_TwistStamped& msg);
 #endif // AP_DDS_LOCAL_VEL_PUB_ENABLED
+
+#if AP_DDS_AIRSPEED_PUB_ENABLED
+    geometry_msgs_msg_Vector3Stamped tx_local_airspeed_topic;
+    // The last ms timestamp AP_DDS wrote a airspeed message
+    uint64_t last_airspeed_time_ms;
+    //! @brief Serialize the current local airspeed and publish to the IO stream(s)
+    void write_tx_local_airspeed_topic();
+    static bool update_topic(geometry_msgs_msg_Vector3Stamped& msg);
+#endif //AP_DDS_AIRSPEED_PUB_ENABLED
 
 #if AP_DDS_BATTERY_STATE_PUB_ENABLED
     sensor_msgs_msg_BatteryState battery_state_topic;
@@ -163,6 +196,17 @@ private:
     static void update_topic(rosgraph_msgs_msg_Clock& msg);
 #endif // AP_DDS_CLOCK_PUB_ENABLED
 
+#if AP_DDS_STATUS_PUB_ENABLED
+    ardupilot_msgs_msg_Status status_topic;
+    bool update_topic(ardupilot_msgs_msg_Status& msg);
+    // The last ms timestamp AP_DDS wrote/checked a status message
+    uint64_t last_status_check_time_ms;
+    // last status values;
+    ardupilot_msgs_msg_Status last_status_msg_;
+    //! @brief Serialize the current status and publish to the IO stream(s)
+    void write_status_topic();
+#endif // AP_DDS_STATUS_PUB_ENABLED
+
 #if AP_DDS_STATIC_TF_PUB_ENABLED
     // outgoing transforms
     tf2_msgs_msg_TFMessage tx_static_transforms_topic;
@@ -183,17 +227,23 @@ private:
     // incoming REP147 goal interface global position
     static ardupilot_msgs_msg_GlobalPosition rx_global_position_control_topic;
 #endif // AP_DDS_GLOBAL_POS_CTRL_ENABLED
-#if AP_DDS_DYNAMIC_TF_SUB
+#if AP_DDS_DYNAMIC_TF_SUB_ENABLED
     // incoming transforms
     static tf2_msgs_msg_TFMessage rx_dynamic_transforms_topic;
-#endif // AP_DDS_DYNAMIC_TF_SUB
+#endif // AP_DDS_DYNAMIC_TF_SUB_ENABLED
     HAL_Semaphore csem;
+
+#if AP_DDS_PARAMETER_SERVER_ENABLED
+    static rcl_interfaces_srv_SetParameters_Request set_parameter_request;
+    static rcl_interfaces_srv_SetParameters_Response set_parameter_response;
+    static rcl_interfaces_srv_GetParameters_Request get_parameters_request;
+    static rcl_interfaces_srv_GetParameters_Response get_parameters_response;
+    static rcl_interfaces_msg_Parameter param;
+#endif
 
     // connection parametrics
     bool status_ok{false};
     bool connected{false};
-
-
 
     // subscription callback function
     static void on_topic_trampoline(uxrSession* session, uxrObjectId object_id, uint16_t request_id, uxrStreamId stream_id, struct ucdrBuffer* ub, uint16_t length, void* args);
@@ -244,6 +294,7 @@ private:
 
     // client key we present
     static constexpr uint32_t key = 0xAAAABBBB;
+
 
 public:
     ~AP_DDS_Client();

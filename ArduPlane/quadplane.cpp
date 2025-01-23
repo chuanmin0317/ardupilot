@@ -350,7 +350,7 @@ const AP_Param::GroupInfo QuadPlane::var_info2[] = {
     // @DisplayName: Throttle expo strength
     // @Description: Amount of curvature in throttle curve: 0 is linear, 1 is cubic
     // @Range: 0 1
-    // @Increment: .1
+    // @Increment: 0.1
     // @User: Advanced
     AP_GROUPINFO("THROTTLE_EXPO", 10, QuadPlane, throttle_expo, 0.2),
 
@@ -585,30 +585,6 @@ static const struct AP_Param::defaults_table_struct defaults_table[] = {
   conversion table for quadplane parameters
  */
 const AP_Param::ConversionInfo q_conversion_table[] = {
-    { Parameters::k_param_quadplane, 4044, AP_PARAM_FLOAT, "Q_P_POSZ_P" },     //  Q_PZ_P
-    { Parameters::k_param_quadplane, 4045, AP_PARAM_FLOAT, "Q_P_POSXY_P"},     //  Q_PXY_P
-    { Parameters::k_param_quadplane, 4046, AP_PARAM_FLOAT, "Q_P_VELXY_P"},     //  Q_VXY_P
-    { Parameters::k_param_quadplane, 78,   AP_PARAM_FLOAT, "Q_P_VELXY_I"},     //  Q_VXY_I
-    { Parameters::k_param_quadplane, 142,  AP_PARAM_FLOAT, "Q_P_VELXY_IMAX"},  //  Q_VXY_IMAX
-    { Parameters::k_param_quadplane, 206,  AP_PARAM_FLOAT, "Q_P_VELXY_FLTE"},  //  Q_VXY_FILT_HZ
-    { Parameters::k_param_quadplane, 4047, AP_PARAM_FLOAT, "Q_P_VELZ_P"},      //  Q_VZ_P
-    { Parameters::k_param_quadplane, 4048, AP_PARAM_FLOAT, "Q_P_ACCZ_P"},      //  Q_AZ_P
-    { Parameters::k_param_quadplane, 80,   AP_PARAM_FLOAT, "Q_P_ACCZ_I"},      //  Q_AZ_I
-    { Parameters::k_param_quadplane, 144,  AP_PARAM_FLOAT, "Q_P_ACCZ_D"},      //  Q_AZ_D
-    { Parameters::k_param_quadplane, 336,  AP_PARAM_FLOAT, "Q_P_ACCZ_IMAX"},   //  Q_AZ_IMAX
-    { Parameters::k_param_quadplane, 400,  AP_PARAM_FLOAT, "Q_P_ACCZ_FLTD"},   //  Q_AZ_FILT
-    { Parameters::k_param_quadplane, 464,  AP_PARAM_FLOAT, "Q_P_ACCZ_FF"},     //  Q_AZ_FF
-    { Parameters::k_param_quadplane, 276,  AP_PARAM_FLOAT, "Q_LOIT_SPEED"},    //  Q_WP_LOIT_SPEED
-    { Parameters::k_param_quadplane, 468,  AP_PARAM_FLOAT, "Q_LOIT_BRK_JERK" },//  Q_WP_LOIT_JERK
-    { Parameters::k_param_quadplane, 532,  AP_PARAM_FLOAT, "Q_LOIT_ACC_MAX" }, //  Q_WP_LOIT_MAXA
-    { Parameters::k_param_quadplane, 596,  AP_PARAM_FLOAT, "Q_LOIT_BRK_ACCEL" },// Q_WP_LOIT_MINA
-    { Parameters::k_param_q_attitude_control, 385,  AP_PARAM_FLOAT, "Q_A_RAT_RLL_FLTD" },// Q_A_RAT_RLL_FILT
-    { Parameters::k_param_q_attitude_control, 386,  AP_PARAM_FLOAT, "Q_A_RAT_PIT_FLTD" },// Q_A_RAT_PIT_FILT
-    { Parameters::k_param_q_attitude_control, 387,  AP_PARAM_FLOAT, "Q_A_RAT_YAW_FLTE" },// Q_A_RAT_YAW_FILT
-    { Parameters::k_param_q_attitude_control, 449,  AP_PARAM_FLOAT, "Q_A_RAT_RLL_FF" },  // Q_A_RAT_RLL_FF
-    { Parameters::k_param_q_attitude_control, 450,  AP_PARAM_FLOAT, "Q_A_RAT_PIT_FF" },  // Q_A_RAT_PIT_FF
-    { Parameters::k_param_q_attitude_control, 451,  AP_PARAM_FLOAT, "Q_A_RAT_YAW_FF" },  // Q_A_RAT_YAW_FILT
-
     // tailsitter params have moved but retain the same names
     { Parameters::k_param_quadplane, 48,  AP_PARAM_INT8,  "Q_TAILSIT_ANGLE" },
     { Parameters::k_param_quadplane, 61,  AP_PARAM_INT8,  "Q_TAILSIT_ANG_VT" },
@@ -2905,7 +2881,8 @@ QuadPlane::ActiveFwdThr QuadPlane::get_vfwd_method(void) const
 /*
   map from pitch tilt to fwd throttle when enabled
  */
-void QuadPlane::assign_tilt_to_fwd_thr(void) {
+void QuadPlane::assign_tilt_to_fwd_thr(void)
+{
 
     const auto fwd_thr_active = get_vfwd_method();
     if (fwd_thr_active != ActiveFwdThr::NEW) {
@@ -4201,7 +4178,7 @@ uint16_t QuadPlane::get_pilot_velocity_z_max_dn() const
 {
     if (is_zero(pilot_speed_z_max_dn)) {
         return abs(pilot_speed_z_max_up*100);
-   }
+    }
     return abs(pilot_speed_z_max_dn*100);
 }
 
@@ -4374,7 +4351,20 @@ bool SLT_Transition::allow_update_throttle_mix() const
 
 bool SLT_Transition::active_frwd() const
 {
-    return quadplane.assisted_flight && ((transition_state == TRANSITION_AIRSPEED_WAIT) || (transition_state == TRANSITION_TIMER));
+    // We need to be in assisted flight...
+    if (!quadplane.assisted_flight) {
+        return false;
+    }
+    // ... and a transition must be active...
+    if (!((transition_state == TRANSITION_AIRSPEED_WAIT) || (transition_state == TRANSITION_TIMER))) {
+        return false;
+    }
+    // ... but not executing a QPOS_AIRBRAKE maneuver during an automated landing.
+    if (quadplane.in_vtol_airbrake()) {
+        return false;
+    }
+    
+    return true;
 }
 
 /*
@@ -4486,8 +4476,9 @@ void SLT_Transition::set_last_fw_pitch()
     last_fw_nav_pitch_cd = plane.nav_pitch_cd;
 }
 
-void SLT_Transition::force_transition_complete() {
-    transition_state = TRANSITION_DONE; 
+void SLT_Transition::force_transition_complete()
+{
+    transition_state = TRANSITION_DONE;
     in_forced_transition = false;
     transition_start_ms = 0;
     transition_low_airspeed_ms = 0;
@@ -4580,6 +4571,11 @@ void QuadPlane::mode_enter(void)
     poscontrol.velocity_match.zero();
     poscontrol.last_velocity_match_ms = 0;
     poscontrol.set_state(QuadPlane::QPOS_NONE);
+
+    // Clear any pilot corrections
+    poscontrol.pilot_correction_done = false;
+    poscontrol.pilot_correction_active = false;
+    poscontrol.target_vel_cms.zero();
 
     // clear guided takeoff wait on any mode change, but remember the
     // state for special behaviour

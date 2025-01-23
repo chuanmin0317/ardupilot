@@ -3,6 +3,7 @@
 #include "tf2_msgs/msg/TFMessage.h"
 #include "sensor_msgs/msg/BatteryState.h"
 #include "geographic_msgs/msg/GeoPoseStamped.h"
+#include "geometry_msgs/msg/Vector3Stamped.h"
 #if AP_DDS_IMU_PUB_ENABLED
 #include "sensor_msgs/msg/Imu.h"
 #endif //AP_DDS_IMU_PUB_ENABLED
@@ -35,21 +36,30 @@ enum class TopicIndex: uint8_t {
 #if AP_DDS_LOCAL_VEL_PUB_ENABLED
     LOCAL_VELOCITY_PUB,
 #endif // AP_DDS_LOCAL_VEL_PUB_ENABLED
+#if AP_DDS_AIRSPEED_PUB_ENABLED
+    LOCAL_AIRSPEED_PUB,
+#endif // AP_DDS_AIRSPEED_PUB_ENABLED
 #if AP_DDS_GEOPOSE_PUB_ENABLED
     GEOPOSE_PUB,
 #endif // AP_DDS_GEOPOSE_PUB_ENABLED
+#if AP_DDS_GOAL_PUB_ENABLED
+    GOAL_PUB,
+#endif // AP_DDS_GOAL_PUB_ENABLED
 #if AP_DDS_CLOCK_PUB_ENABLED
     CLOCK_PUB,
 #endif // AP_DDS_CLOCK_PUB_ENABLED
 #if AP_DDS_GPS_GLOBAL_ORIGIN_PUB_ENABLED
     GPS_GLOBAL_ORIGIN_PUB,
 #endif // AP_DDS_GPS_GLOBAL_ORIGIN_PUB_ENABLED
+#if AP_DDS_STATUS_PUB_ENABLED
+    STATUS_PUB,
+#endif // AP_DDS_STATUS_PUB_ENABLED
 #if AP_DDS_JOY_SUB_ENABLED
     JOY_SUB,
 #endif // AP_DDS_JOY_SUB_ENABLED
-#if AP_DDS_DYNAMIC_TF_SUB
+#if AP_DDS_DYNAMIC_TF_SUB_ENABLED
     DYNAMIC_TRANSFORMS_SUB,
-#endif // AP_DDS_DYNAMIC_TF_SUB
+#endif // AP_DDS_DYNAMIC_TF_SUB_ENABLED
 #if AP_DDS_VEL_CTRL_ENABLED
     VELOCITY_CONTROL_SUB,
 #endif // AP_DDS_VEL_CTRL_ENABLED
@@ -92,7 +102,7 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
         .dw_id = uxrObjectId{.id=to_underlying(TopicIndex::NAV_SAT_FIX_PUB), .type=UXR_DATAWRITER_ID},
         .dr_id = uxrObjectId{.id=to_underlying(TopicIndex::NAV_SAT_FIX_PUB), .type=UXR_DATAREADER_ID},
         .topic_rw = Topic_rw::DataWriter,
-        .topic_name = "rt/ap/navsat/navsat0",
+        .topic_name = "rt/ap/navsat",
         .type_name = "sensor_msgs::msg::dds_::NavSatFix_",
         .qos = {
             .durability = UXR_DURABILITY_VOLATILE,
@@ -128,7 +138,7 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
         .dw_id = uxrObjectId{.id=to_underlying(TopicIndex::BATTERY_STATE_PUB), .type=UXR_DATAWRITER_ID},
         .dr_id = uxrObjectId{.id=to_underlying(TopicIndex::BATTERY_STATE_PUB), .type=UXR_DATAREADER_ID},
         .topic_rw = Topic_rw::DataWriter,
-        .topic_name = "rt/ap/battery/battery0",
+        .topic_name = "rt/ap/battery",
         .type_name = "sensor_msgs::msg::dds_::BatteryState_",
         .qos = {
             .durability = UXR_DURABILITY_VOLATILE,
@@ -192,6 +202,24 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
         },
     },
 #endif // AP_DDS_LOCAL_VEL_PUB_ENABLED
+#if AP_DDS_AIRSPEED_PUB_ENABLED
+    {
+        .topic_id = to_underlying(TopicIndex::LOCAL_AIRSPEED_PUB),
+        .pub_id = to_underlying(TopicIndex::LOCAL_AIRSPEED_PUB),
+        .sub_id = to_underlying(TopicIndex::LOCAL_AIRSPEED_PUB),
+        .dw_id = uxrObjectId{.id=to_underlying(TopicIndex::LOCAL_AIRSPEED_PUB), .type=UXR_DATAWRITER_ID},
+        .dr_id = uxrObjectId{.id=to_underlying(TopicIndex::LOCAL_AIRSPEED_PUB), .type=UXR_DATAREADER_ID},
+        .topic_rw = Topic_rw::DataWriter,
+        .topic_name = "rt/ap/airspeed",
+        .type_name = "geometry_msgs::msg::dds_::Vector3Stamped_",
+        .qos = {
+            .durability = UXR_DURABILITY_VOLATILE,
+            .reliability = UXR_RELIABILITY_BEST_EFFORT,
+            .history = UXR_HISTORY_KEEP_LAST,
+            .depth = 5,
+        },
+    },
+#endif // AP_DDS_AIRSPEED_PUB_ENABLED
 #if AP_DDS_GEOPOSE_PUB_ENABLED
     {
         .topic_id = to_underlying(TopicIndex::GEOPOSE_PUB),
@@ -210,6 +238,24 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
         },
     },
 #endif // AP_DDS_GEOPOSE_PUB_ENABLED
+#if AP_DDS_GOAL_PUB_ENABLED
+    {
+        .topic_id = to_underlying(TopicIndex::GOAL_PUB),
+        .pub_id = to_underlying(TopicIndex::GOAL_PUB),
+        .sub_id = to_underlying(TopicIndex::GOAL_PUB),
+        .dw_id = uxrObjectId{.id=to_underlying(TopicIndex::GOAL_PUB), .type=UXR_DATAWRITER_ID},
+        .dr_id = uxrObjectId{.id=to_underlying(TopicIndex::GOAL_PUB), .type=UXR_DATAREADER_ID},
+        .topic_rw = Topic_rw::DataWriter,
+        .topic_name = "rt/ap/goal_lla",
+        .type_name = "geographic_msgs::msg::dds_::GeoPointStamped_",
+        .qos = {
+            .durability = UXR_DURABILITY_TRANSIENT_LOCAL,
+            .reliability = UXR_RELIABILITY_RELIABLE,
+            .history = UXR_HISTORY_KEEP_LAST,
+            .depth = 1,
+        },
+    },
+#endif // AP_DDS_GOAL_PUB_ENABLED
 #if AP_DDS_CLOCK_PUB_ENABLED
     {
         .topic_id = to_underlying(TopicIndex::CLOCK_PUB),
@@ -246,6 +292,24 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
         },
     },
 #endif // AP_DDS_GPS_GLOBAL_ORIGIN_PUB_ENABLED
+#if AP_DDS_STATUS_PUB_ENABLED
+    {
+        .topic_id = to_underlying(TopicIndex::STATUS_PUB),
+        .pub_id = to_underlying(TopicIndex::STATUS_PUB),
+        .sub_id = to_underlying(TopicIndex::STATUS_PUB),
+        .dw_id = uxrObjectId{.id=to_underlying(TopicIndex::STATUS_PUB), .type=UXR_DATAWRITER_ID},
+        .dr_id = uxrObjectId{.id=to_underlying(TopicIndex::STATUS_PUB), .type=UXR_DATAREADER_ID},
+        .topic_rw = Topic_rw::DataWriter,
+        .topic_name = "rt/ap/status",
+        .type_name = "ardupilot_msgs::msg::dds_::Status_",
+        .qos = {
+            .durability = UXR_DURABILITY_TRANSIENT_LOCAL,
+            .reliability = UXR_RELIABILITY_RELIABLE,
+            .history = UXR_HISTORY_KEEP_LAST,
+            .depth = 1,
+        },
+    },
+#endif // AP_DDS_STATUS_PUB_ENABLED
 #if AP_DDS_JOY_SUB_ENABLED
     {
         .topic_id = to_underlying(TopicIndex::JOY_SUB),
@@ -264,7 +328,7 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
         },
     },
 #endif // AP_DDS_JOY_SUB_ENABLED
-#if AP_DDS_DYNAMIC_TF_SUB
+#if AP_DDS_DYNAMIC_TF_SUB_ENABLED
     {
         .topic_id = to_underlying(TopicIndex::DYNAMIC_TRANSFORMS_SUB),
         .pub_id = to_underlying(TopicIndex::DYNAMIC_TRANSFORMS_SUB),
@@ -281,7 +345,7 @@ constexpr struct AP_DDS_Client::Topic_table AP_DDS_Client::topics[] = {
             .depth = 5,
         },
     },
-#endif // AP_DDS_DYNAMIC_TF_SUB
+#endif // AP_DDS_DYNAMIC_TF_SUB_ENABLED
 #if AP_DDS_VEL_CTRL_ENABLED
     {
         .topic_id = to_underlying(TopicIndex::VELOCITY_CONTROL_SUB),

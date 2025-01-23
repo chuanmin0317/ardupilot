@@ -40,6 +40,7 @@ class Board:
 
     def __init__(self):
         self.with_can = False
+        self.with_littlefs = False
 
     def configure(self, cfg):
         cfg.env.TOOLCHAIN = cfg.options.toolchain or self.toolchain
@@ -177,7 +178,10 @@ class Board:
 
         if cfg.options.enable_networking_tests:
             env.CXXFLAGS += ['-DAP_NETWORKING_TESTS_ENABLED=1']
-            
+
+        if cfg.options.enable_iomcu_profiled_support:
+            env.CXXFLAGS += ['-DAP_IOMCU_PROFILED_SUPPORT_ENABLED=1']
+
         d = env.get_merged_dict()
         # Always prepend so that arguments passed in the command line get
         # the priority.
@@ -361,10 +365,10 @@ class Board:
             '-Wpointer-arith',
             '-Wno-unused-parameter',
             '-Wno-missing-field-initializers',
-            '-Wno-reorder',
             '-Wno-redundant-decls',
             '-Wno-unknown-pragmas',
             '-Wno-expansion-to-defined',
+            '-Werror=reorder',
             '-Werror=cast-align',
             '-Werror=attributes',
             '-Werror=format-security',
@@ -674,7 +678,10 @@ Please use a replacement build as follows:
 class sitl(Board):
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
+        self.with_littlefs = True
 
     def configure_env(self, cfg, env):
         super(sitl, self).configure_env(cfg, env)
@@ -695,6 +702,12 @@ class sitl(Board):
 
         cfg.define('AP_NOTIFY_LP5562_BUS', 2)
         cfg.define('AP_NOTIFY_LP5562_ADDR', 0x30)
+
+        # turn on fencepoint and rallypoint protocols so they're still tested:
+        env.CXXFLAGS.extend([
+            '-DAP_MAVLINK_RALLY_POINT_PROTOCOL_ENABLED=HAL_GCS_ENABLED&&HAL_RALLY_ENABLED',
+            '-DAC_POLYFENCE_FENCE_POINT_PROTOCOL_SUPPORT=HAL_GCS_ENABLED&&AP_FENCE_ENABLED'
+        ])
 
         try:
             env.CXXFLAGS.remove('-DHAL_NAVEKF2_AVAILABLE=0')
@@ -817,6 +830,9 @@ class sitl(Board):
                 cfg.fatal("Failed to find SFML Audio libraries")
             env.CXXFLAGS += ['-DWITH_SITL_TONEALARM']
 
+        if cfg.options.sitl_littlefs:
+            env.CXXFLAGS += ['-DHAL_OS_LITTLEFS_IO=1']
+
         if cfg.env.DEST_OS == 'cygwin':
             env.LIB += [
                 'winmm',
@@ -936,10 +952,11 @@ class sitl_periph_universal(sitl_periph):
             CAN_APP_NODE_NAME = '"org.ardupilot.ap_periph_universal"',
             APJ_BOARD_ID = 100,
 
-            HAL_PERIPH_ENABLE_GPS = 1,
+            AP_PERIPH_GPS_ENABLED = 1,
             HAL_PERIPH_ENABLE_AIRSPEED = 1,
             HAL_PERIPH_ENABLE_MAG = 1,
             HAL_PERIPH_ENABLE_BARO = 1,
+            HAL_PERIPH_ENABLE_IMU = 1,
             HAL_PERIPH_ENABLE_RANGEFINDER = 1,
             HAL_PERIPH_ENABLE_BATTERY = 1,
             HAL_PERIPH_ENABLE_EFI = 1,
@@ -954,6 +971,7 @@ class sitl_periph_universal(sitl_periph):
             HAL_WITH_ESC_TELEM = 1,
             AP_EXTENDED_ESC_TELEM_ENABLED = 1,
             AP_TERRAIN_AVAILABLE = 1,
+            HAL_GYROFFT_ENABLED = 0,
         )
 
 class sitl_periph_gps(sitl_periph):
@@ -966,7 +984,7 @@ class sitl_periph_gps(sitl_periph):
             CAN_APP_NODE_NAME = '"org.ardupilot.ap_periph_gps"',
             APJ_BOARD_ID = 101,
 
-            HAL_PERIPH_ENABLE_GPS = 1,
+            AP_PERIPH_GPS_ENABLED = 1,
         )
 
 class sitl_periph_battmon(sitl_periph):
@@ -1007,7 +1025,6 @@ class esp32(Board):
         # this makes sure we get the correct subtype
         env.DEFINES.update(
             CONFIG_HAL_BOARD_SUBTYPE = 'HAL_BOARD_SUBTYPE_ESP32_%s' %  tt.upper() ,
-            HAL_HAVE_HARDWARE_DOUBLE = '1',
         )
 
         if self.name.endswith("empty"):
@@ -1051,7 +1068,16 @@ class esp32(Board):
         env.CXXFLAGS.remove('-Werror=shadow')
 
         # wrap malloc to ensure memory is zeroed
+        # note that this also needs to be done in the CMakeLists.txt files
         env.LINKFLAGS += ['-Wl,--wrap,malloc']
+
+        # TODO: remove once hwdef.dat support is in place
+        defaults_file = 'libraries/AP_HAL_ESP32/hwdef/%s/defaults.parm' % self.get_name()
+        if os.path.exists(defaults_file):
+            env.ROMFS_FILES += [('defaults.parm', defaults_file)]
+            env.DEFINES.update(
+                HAL_PARAM_DEFAULTS_PATH='"@ROMFS/defaults.parm"',
+            )
 
         env.INCLUDES += [
                 cfg.srcnode.find_dir('libraries/AP_HAL_ESP32/boards').abspath(),
@@ -1334,6 +1360,8 @@ class chibios(Board):
 
 class linux(Board):
     def __init__(self):
+        super().__init__()
+
         if self.toolchain == 'native':
             self.with_can = True
         else:
@@ -1479,6 +1507,8 @@ class edge(linux):
     toolchain = 'arm-linux-gnueabihf'
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
 
     def configure_env(self, cfg, env):
@@ -1512,6 +1542,8 @@ class bbbmini(linux):
     toolchain = 'arm-linux-gnueabihf'
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
 
     def configure_env(self, cfg, env):
@@ -1525,6 +1557,8 @@ class blue(linux):
     toolchain = 'arm-linux-gnueabihf'
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
 
     def configure_env(self, cfg, env):
@@ -1539,6 +1573,8 @@ class pocket(linux):
     toolchain = 'arm-linux-gnueabihf'
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
 
     def configure_env(self, cfg, env):
@@ -1631,6 +1667,8 @@ class pxfmini(linux):
 
 class aero(linux):
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
 
     def configure_env(self, cfg, env):
@@ -1664,6 +1702,8 @@ class canzero(linux):
     toolchain = 'arm-linux-gnueabihf'
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = True
 
     def configure_env(self, cfg, env):
@@ -1689,6 +1729,8 @@ class QURT(Board):
     toolchain = 'custom'
 
     def __init__(self):
+        super().__init__()
+
         self.with_can = False
 
     def configure_toolchain(self, cfg):

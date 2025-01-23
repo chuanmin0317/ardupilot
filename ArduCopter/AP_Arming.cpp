@@ -1,7 +1,7 @@
 #include "Copter.h"
 
 #pragma GCC diagnostic push
-#if defined(__clang__)
+#if defined(__clang_major__) && __clang_major__ >= 14
 #pragma GCC diagnostic ignored "-Wbitwise-instead-of-logical"
 #endif
 
@@ -49,6 +49,14 @@ bool AP_Arming_Copter::run_pre_arm_checks(bool display_failure)
         check_failed(display_failure, "Motors: %s", failure_msg);
         passed = false;
     }
+
+#if FRAME_CONFIG == HELI_FRAME && MODE_AUTOROTATE_ENABLED
+    // check on autorotation config
+    if (!copter.g2.arot.arming_checks(ARRAY_SIZE(failure_msg), failure_msg)) {
+        check_failed(display_failure, "AROT: %s", failure_msg);
+        passed = false;
+    }
+#endif
 
     // If not passed all checks return false
     if (!passed) {
@@ -267,8 +275,8 @@ bool AP_Arming_Copter::parameter_checks(bool display_failure)
                     return false;
                 }
                 // check if RTL_ALT is higher than rangefinder's max range
-                if (copter.g.rtl_altitude > copter.rangefinder.max_distance_cm_orient(ROTATION_PITCH_270)) {
-                    check_failed(ARMING_CHECK_PARAMETERS, display_failure, failure_template, "RTL_ALT>RNGFND_MAX_CM");
+                if (copter.g.rtl_altitude > copter.rangefinder.max_distance_orient(ROTATION_PITCH_270) * 100) {
+                    check_failed(ARMING_CHECK_PARAMETERS, display_failure, failure_template, "RTL_ALT (in cm) above RNGFND_MAX (in metres)");
                     return false;
                 }
 #else

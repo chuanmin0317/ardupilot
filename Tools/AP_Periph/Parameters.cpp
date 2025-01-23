@@ -224,7 +224,7 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     GSCALAR(buzz_volume,     "BUZZER_VOLUME", 100),
 #endif
 
-#ifdef HAL_PERIPH_ENABLE_GPS
+#if AP_PERIPH_GPS_ENABLED
     // GPS driver
     // @Group: GPS
     // @Path: ../libraries/AP_GPS/AP_GPS.cpp
@@ -721,6 +721,20 @@ const AP_Param::Info AP_Periph_FW::var_info[] = {
     // @Increment: 1
     // @User: Advanced
     GSCALAR(esc_extended_telem_rate, "ESC_EXT_TLM_RATE", AP_PERIPH_ESC_TELEM_RATE_DEFAULT / 10),
+#endif
+
+
+#ifdef HAL_PERIPH_ENABLE_IMU
+    // @Param: IMU_SAMPLE_RATE
+    // @DisplayName: IMU Sample Rate
+    // @Description: IMU Sample Rate
+    // @Range: 0 1000
+    // @User: Standard
+    GSCALAR(imu_sample_rate, "INS_SAMPLE_RATE", 0),
+
+    // @Group: INS
+    // @Path: ../libraries/AP_InertialSensor/AP_InertialSensor.cpp
+    GOBJECT(imu, "INS", AP_InertialSensor),
 #endif
 
     AP_VAREND
